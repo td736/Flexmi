@@ -28,8 +28,6 @@ import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceImpl;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.xmi.impl.XMIResourceFactoryImpl;
-import org.eclipse.epsilon.flexmi.FlexmiObject;
-import org.eclipse.epsilon.flexmi.FlexmiObjectManager;
 import org.eclipse.epsilon.flexmi.xml.Location;
 import org.eclipse.epsilon.flexmi.xml.PseudoSAXParser;
 import org.eclipse.epsilon.flexmi.xml.PseudoSAXParser.Handler;
@@ -50,8 +48,6 @@ public class FlexmiResource extends ResourceImpl implements Handler {
 	protected EObjectTraceManager eObjectTraceManager = new EObjectTraceManager();
 	protected List<UnresolvedReference> unresolvedReferences = new ArrayList<UnresolvedReference>();
 	protected Stack<Object> stack = new Stack<Object>();
-	protected Stack<FlexmiObject> flexmiStack = new Stack<FlexmiObject>();
-	protected FlexmiObjectManager flexmiObjectManager = new FlexmiObjectManager();
 	protected Node currentNode = null;
 	protected List<String> scripts = new ArrayList<String>();
 	protected HashMap<String, EClass> eClassCache = new HashMap<String, EClass>();
@@ -142,21 +138,7 @@ public class FlexmiResource extends ResourceImpl implements Handler {
 	
 	@Override
 	public void startDocument(Document document) {}
-	
-	// Fix this for different object types.
-	public void newStartElement(Element element) {
-		currentNode = element;
-		if(flexmiStack.isEmpty()) {
-			FlexmiObject flexmiObject = new FlexmiObject(element, 0);
-			flexmiObjectManager.addObject(flexmiObject);
-			flexmiStack.push(flexmiObject);
-		} else { 
-			FlexmiObject peek = flexmiStack.peek();
-			FlexmiObject flexmiObject = new FlexmiObject((FlexmiObject) peek, element, flexmiStack.size());
-			peek.addChild(flexmiObject);
-		}
-	}
-	
+
 	@Override
 	public void startElement(Element element) {
 		currentNode = element;
@@ -212,7 +194,7 @@ public class FlexmiResource extends ResourceImpl implements Handler {
 			// The parent is an EObject
 			else if (peek instanceof EObject) {
 				EObject parent = (EObject) peek;
-
+				
 				if (element.getAttributes().getLength() == 0 && element.getChildNodes().getLength() == 1 && element.getFirstChild() instanceof Text) {
 					EAttribute eAttribute = (EAttribute) eNamedElementForName(name, parent.eClass().getEAllAttributes());
 					
@@ -545,69 +527,5 @@ public class FlexmiResource extends ResourceImpl implements Handler {
 		
 		return null;
 	}
-	// Returns a Map containing the possible matches and their similarities.
-	protected Map<ENamedElement, Integer> possibleMatches(String name, Collection<? extends ENamedElement> candidates, boolean fuzzy) {
-		
-		if (fuzzy) {
-			Map<ENamedElement, Integer> matches = new HashMap<ENamedElement, Integer>();
-			ENamedElement minimum = getMin(matches);
-			for (ENamedElement candidate : candidates) {
-				int similarity = stringSimilarityProvider.getSimilarity(candidate.getName().toLowerCase(), name.toLowerCase());
-				
-				
-				// Matches map contains 3 elements
-				if(minimum != null) {
-					if(matches.get(minimum) < similarity) {
-						matches.remove(minimum);
-						matches.put(candidate, similarity);
-						minimum = getMin(matches);
-					}
-				} // Matches contains less than 3 elements
-				else {
-					matches.put(candidate, similarity);
-				}
-			}
-			// Only one candidate available
-			if (candidates.size() == 1) {
-				Map<ENamedElement, Integer> singleMatch = new HashMap<ENamedElement, Integer>();
-				singleMatch.put(candidates.iterator().next(), 0);
-				return singleMatch;
-			}
-			
-			return matches;			
-		}
-		else {
-			// Return a map with only one element if it has identical name as XML element.
-			for (ENamedElement candidate : candidates) {
-				if (candidate.getName().equalsIgnoreCase(name)) {
-					Map<ENamedElement, Integer> match = new HashMap<ENamedElement, Integer>();
-					match.put(candidate, -1);
-					return match;
-				} 
-			}
-		}
-		
-		return null;
-	}
-	// Returns key with smallest value in map as long as map contains 3 elements.
-	protected ENamedElement getMin(Map<ENamedElement, Integer> map){
-		int min = 0;
-		ENamedElement smallest = null;
-		if(map.size() < 3) {
-			return null;
-		}
-		
-		for (ENamedElement element : map.keySet()) {
-			if(map.get(element) < min) {
-				min = map.get(element);
-				smallest = element;
-			}
-		}
-		return smallest;
-	}
 
 }
-
-
-
-
